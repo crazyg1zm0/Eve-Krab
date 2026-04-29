@@ -7,16 +7,16 @@ import {
 
 // ─── YOUR 10 P1 MATERIALS ─────────────────────────────────────────────────────
 const MATERIALS = [
-  { id: "reactive_metals",   name: "Reactive Metals",   typeId: 2410, planet: "Barren / Gas / Ice" },
+  { id: "reactive_metals",   name: "Reactive Metals",   typeId: 2398, planet: "Barren / Gas / Ice" },
   { id: "water",             name: "Water",             typeId: 3645, planet: "Barren / Oceanic / Ice" },
   { id: "electrolytes",      name: "Electrolytes",      typeId: 2390, planet: "Gas / Storm / Ice" },
-  { id: "oxygen",            name: "Oxygen",            typeId: 2399, planet: "Gas / Ice / Storm" },
+  { id: "oxygen",            name: "Oxygen",            typeId: 3683, planet: "Gas / Ice / Storm" },
   { id: "chiral_structures", name: "Chiral Structures", typeId: 2401, planet: "Lava / Plasma" },
   { id: "toxic_metals",      name: "Toxic Metals",      typeId: 2400, planet: "Lava / Ice / Storm" },
   { id: "bacteria",          name: "Bacteria",          typeId: 2393, planet: "Barren / Oceanic / Temperate" },
-  { id: "biofuels",          name: "Biofuels",          typeId: 2397, planet: "Barren / Oceanic / Temperate" },
+  { id: "biofuels",          name: "Biofuels",          typeId: 2396, planet: "Barren / Oceanic / Temperate" },
   { id: "proteins",          name: "Proteins",          typeId: 2395, planet: "Temperate / Oceanic" },
-  { id: "industrial_fibers", name: "Industrial Fibers", typeId: 2396, planet: "Temperate" },
+  { id: "industrial_fibers", name: "Industrial Fibers", typeId: 2397, planet: "Temperate" },
 ];
 
 // ─── FACTORY RECIPES — P1 cost per single factory run ─────────────────────────
@@ -672,7 +672,7 @@ function StockPage({stock,alerts,prices,onCollect,onFactory,onEditAlert}) {
                   <StockBar stock={qty} alert={alert}/>
                 </div>
                 <div style={{background:"var(--deep)",padding:"8px 10px",borderRadius:3}}>
-                  <HUD style={{fontSize:9,color:"var(--tm)",display:"block",marginBottom:3}}>ADJ PRICE</HUD>
+                  <HUD style={{fontSize:9,color:"var(--tm)",display:"block",marginBottom:3}}>JITA SELL</HUD>
                   <div style={{fontFamily:"var(--mono)",fontSize:16,color:"var(--gold)"}}>{price?fmtISK(price.adj):"—"}</div>
                   {price && <div style={{fontSize:10,color:"var(--tm)"}}>avg {fmtISK(price.avg)}</div>}
                 </div>
@@ -855,7 +855,7 @@ function PricesPage({prices,onRefresh,refreshing}) {
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
           <thead>
             <tr style={{background:"var(--deep)"}}>
-              {["Material","Type ID","Adj. Price","Avg. Price","Spread"].map(h=>(
+              {["Material","Type ID","Jita Sell","Avg. Price","Spread"].map(h=>(
                 <th key={h} style={{textAlign:"left",padding:"10px 14px",borderBottom:"1px solid var(--b1)"}}>
                   <HUD style={{fontSize:9,color:"var(--tm)"}}>{h}</HUD>
                 </th>
