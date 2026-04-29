@@ -1,20 +1,20 @@
 #!/bin/bash
 # ============================================================
-# EVE PI Tracker — Install Script
+# Eve-Krab — Install Script
 # Run as root on a fresh Ubuntu 22.04 LXC container
 # ============================================================
 set -e
 
-APP_DIR="/opt/eve-pi-tracker"
+APP_DIR="/opt/eve-krab"
 VENV_DIR="$APP_DIR/venv"
 FRONTEND_DIR="$APP_DIR/frontend"
 DB_NAME="evepitracker"
 DB_USER="evepi"
-DB_PASS="${DB_PASS:-changeme}"   # override by exporting DB_PASS before running
+DB_PASS="${DB_PASS:-changeme}"
 
 echo ""
 echo "================================================"
-echo "  EVE PI Tracker — Install"
+echo "  Eve-Krab — Install"
 echo "================================================"
 echo ""
 
@@ -25,7 +25,7 @@ apt install -y \
     python3 python3-pip python3-venv \
     postgresql postgresql-contrib \
     nginx \
-    nodejs npm \
+    nodejs \
     git curl
 
 # ── 2. PostgreSQL ─────────────────────────────────────────────
@@ -33,13 +33,15 @@ echo "[2/7] Configuring PostgreSQL..."
 systemctl enable postgresql
 systemctl start postgresql
 
-# Create DB user and database (ignore errors if they already exist)
 sudo -u postgres psql -c "CREATE USER $DB_USER WITH PASSWORD '$DB_PASS';" 2>/dev/null || true
 sudo -u postgres psql -c "CREATE DATABASE $DB_NAME OWNER $DB_USER;" 2>/dev/null || true
 sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;" 2>/dev/null || true
 
-# Run schema
 sudo -u postgres psql -d $DB_NAME < "$APP_DIR/postgres/init.sql"
+
+sudo -u postgres psql -d $DB_NAME -c "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $DB_USER;"
+sudo -u postgres psql -d $DB_NAME -c "GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO $DB_USER;"
+
 echo "    Database ready."
 
 # ── 3. Python venv + backend deps ────────────────────────────
@@ -60,9 +62,8 @@ echo "[5/7] Building frontend..."
 cd "$FRONTEND_DIR"
 npm install --silent
 
-# Read VITE_API_URL from environment or prompt
 if [ -z "$VITE_API_URL" ]; then
-    read -rp "    Enter the IP/hostname this will be accessed from (e.g. 192.168.1.50): " HOST_IP
+    read -rp "    Enter the IP this will be accessed from (e.g. 192.168.1.50): " HOST_IP
     VITE_API_URL="http://$HOST_IP:8000"
 fi
 
@@ -71,13 +72,12 @@ echo "    Frontend built."
 
 # ── 6. Nginx ──────────────────────────────────────────────────
 echo "[6/7] Configuring Nginx..."
-cp "$APP_DIR/deploy/nginx.conf" /etc/nginx/sites-available/eve-pi-tracker
-ln -sf /etc/nginx/sites-available/eve-pi-tracker /etc/nginx/sites-enabled/eve-pi-tracker
+cp "$APP_DIR/deploy/nginx.conf" /etc/nginx/sites-available/eve-krab
+ln -sf /etc/nginx/sites-available/eve-krab /etc/nginx/sites-enabled/eve-krab
 rm -f /etc/nginx/sites-enabled/default
 
-# Copy built frontend to web root
-mkdir -p /var/www/eve-pi-tracker
-cp -r "$FRONTEND_DIR/dist/." /var/www/eve-pi-tracker/
+mkdir -p /var/www/eve-krab
+cp -r "$FRONTEND_DIR/dist/." /var/www/eve-krab/
 
 nginx -t
 systemctl enable nginx
@@ -96,8 +96,8 @@ echo ""
 echo "================================================"
 echo "  Install complete!"
 echo ""
-echo "  App:     http://$(hostname -I | awk '{print $1}'):80"
-echo "  API:     http://$(hostname -I | awk '{print $1}'):8000"
+echo "  App:      http://$(hostname -I | awk '{print $1}')"
+echo "  API:      http://$(hostname -I | awk '{print $1}'):8000"
 echo "  API docs: http://$(hostname -I | awk '{print $1}'):8000/docs"
 echo ""
 echo "  Logs:    journalctl -u eve-pi-backend -f"

@@ -1,14 +1,14 @@
 [Unit]
-Description=EVE PI Tracker — FastAPI Backend
+Description=Eve-Krab — FastAPI Backend
 After=network.target postgresql.service
 Requires=postgresql.service
 
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/opt/eve-pi-tracker/backend
-EnvironmentFile=/opt/eve-pi-tracker/backend/.env
-ExecStart=/opt/eve-pi-tracker/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+WorkingDirectory=/opt/eve-krab/backend
+EnvironmentFile=/opt/eve-krab/backend/.env
+ExecStart=/opt/eve-krab/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
 Restart=always
 RestartSec=5
 StandardOutput=journal
