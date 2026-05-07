@@ -43,3 +43,11 @@ class MarketPrice(Base):
     adjusted_price = Column(Numeric(18, 4))
     average_price  = Column(Numeric(18, 4))
     fetched_at     = Column(DateTime, server_default=func.now())
+
+
+class AppSetting(Base):
+    __tablename__ = "app_settings"
+    id         = Column(Integer, primary_key=True)
+    key        = Column(String(50), nullable=False, unique=True)
+    value      = Column(String(200), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

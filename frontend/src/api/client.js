@@ -13,19 +13,22 @@ async function req(method, path, body) {
 
 export const api = {
   // Stock
-  getStock:      ()         => req("GET",  "/stock/"),
-  updateAlert:   (mat_id, min_alert) => req("PATCH", "/stock/alert", { mat_id, min_alert }),
+  getStock:        ()                       => req("GET",  "/stock/"),
+  updateAlert:     (mat_id, min_alert)      => req("PATCH","/stock/alert", { mat_id, min_alert }),
 
   // Log
-  getLog:        (limit=200) => req("GET",  `/log/?limit=${limit}`),
-  createLog:     (data)      => req("POST", "/log/", data),
-  deleteLog:     (id)        => req("DELETE", `/log/${id}`),
+  getLog:          (limit=200)              => req("GET",  `/log/?limit=${limit}`),
+  createLog:       (data)                   => req("POST", "/log/", data),
+  deleteLog:       (id)                     => req("DELETE",`/log/${id}`),
 
   // Prices
-  getLatestPrices: ()        => req("GET",  "/prices/latest"),
-  refreshPrices:   ()        => req("POST", "/prices/refresh"),
+  getLatestPrices: ()                       => req("GET",  "/prices/latest"),
+  refreshPrices:   ()                       => req("POST", "/prices/refresh"),
+  getPriceSettings:()                       => req("GET",  "/prices/settings"),
+  savePriceSettings:(hub, type, theme)      => req("POST",
+    `/prices/settings?price_hub=${hub}&price_type=${type}&theme=${theme}`),
 
   // Analytics
-  getDaily:        (days=14) => req("GET",  `/analytics/daily?days=${days}`),
-  getPerMaterial:  ()        => req("GET",  "/analytics/per-material"),
+  getDaily:        (days=14)                => req("GET",  `/analytics/daily?days=${days}`),
+  getPerMaterial:  ()                       => req("GET",  "/analytics/per-material"),
 }

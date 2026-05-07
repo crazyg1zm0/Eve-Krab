@@ -1,4 +1,4 @@
--- EVE PI Tracker — Wetware Mainframe Operation
+-- Eve-Krab PI Tracker — Database Schema
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 CREATE TABLE IF NOT EXISTS stock (
@@ -35,20 +35,21 @@ CREATE TABLE IF NOT EXISTS market_prices (
     fetched_at     TIMESTAMP DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS app_settings (
+    id         SERIAL PRIMARY KEY,
+    key        VARCHAR(50) NOT NULL UNIQUE,
+    value      VARCHAR(200) NOT NULL,
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_log_lines_entry    ON log_lines(entry_id);
 CREATE INDEX IF NOT EXISTS idx_market_prices_mat  ON market_prices(mat_id);
 CREATE INDEX IF NOT EXISTS idx_market_prices_time ON market_prices(fetched_at);
 CREATE INDEX IF NOT EXISTS idx_log_entries_date   ON log_entries(entry_date);
 
-INSERT INTO stock (mat_id, quantity, min_alert) VALUES
-    ('reactive_metals',   0, 46080),
-    ('water',             0, 46080),
-    ('electrolytes',      0, 30720),
-    ('oxygen',            0, 15360),
-    ('chiral_structures', 0, 15360),
-    ('toxic_metals',      0, 30720),
-    ('bacteria',          0, 46080),
-    ('biofuels',          0, 15360),
-    ('proteins',          0, 30720),
-    ('industrial_fibers', 0, 0)
-ON CONFLICT (mat_id) DO NOTHING;
+-- Default settings
+INSERT INTO app_settings (key, value) VALUES
+    ('price_hub',  'jita'),
+    ('price_type', 'lowest_sell'),
+    ('theme',      'dark')
+ON CONFLICT (key) DO NOTHING;
