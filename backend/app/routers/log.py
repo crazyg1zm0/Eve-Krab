@@ -24,31 +24,87 @@ async def get_log(limit: int = 200, db: AsyncSession = Depends(get_db)):
 
 @router.post("/", response_model=LogEntryOut)
 async def create_log_entry(payload: LogEntryIn, db: AsyncSession = Depends(get_db)):
-    entry = LogEntry(
-        entry_type=payload.entry_type,
-        recipe=payload.recipe,
-        runs=payload.runs,
-        note=payload.note,
-        entry_date=payload.entry_date or datetime.utcnow(),
-    )
-    db.add(entry)
-    await db.flush()
+    entry_date = payload.entry_date or datetime.utcnow()
 
-    for line in payload.lines:
-        db.add(LogLine(entry_id=entry.id, mat_id=line.mat_id, quantity=line.quantity))
+    if payload.set_as_total:
+        # ── SET AS TOTAL MODE ─────────────────────────────────────────────────
+        # Compare new totals against current stock.
+        # If new > old → auto-log the difference as a 'collect' entry.
+        # If new < old → auto-log the difference as an 'adjust' entry (sold/used).
+        # Then update stock to the new total.
 
-        # Ensure stock row exists
-        result = await db.execute(select(Stock).where(Stock.mat_id == line.mat_id))
-        stock_row = result.scalar_one_or_none()
+        collect_lines = []   # materials that went up
+        adjust_lines  = []   # materials that went down
 
-        if payload.set_as_total and line.quantity >= 0:
-            # Set as total mode — replace the value, log the diff
+        for line in payload.lines:
+            result = await db.execute(select(Stock).where(Stock.mat_id == line.mat_id))
+            stock_row = result.scalar_one_or_none()
+            old_qty = int(stock_row.quantity) if stock_row else 0
+            new_qty = int(line.quantity)
+            diff    = new_qty - old_qty
+
+            if diff > 0:
+                collect_lines.append((line.mat_id, diff))
+            elif diff < 0:
+                adjust_lines.append((line.mat_id, diff))  # negative value
+
+            # Update stock to new total
             if stock_row:
-                stock_row.quantity = line.quantity
+                stock_row.quantity = new_qty
             else:
-                db.add(Stock(mat_id=line.mat_id, quantity=line.quantity))
-        else:
-            # Normal add/subtract mode
+                db.add(Stock(mat_id=line.mat_id, quantity=new_qty))
+
+        # Log the set_total entry (stores the absolute values for reference)
+        entry = LogEntry(
+            entry_type="set_total",
+            note=payload.note,
+            entry_date=entry_date,
+        )
+        db.add(entry)
+        await db.flush()
+        for line in payload.lines:
+            db.add(LogLine(entry_id=entry.id, mat_id=line.mat_id, quantity=line.quantity))
+
+        # Auto-log a collect entry for materials that increased
+        if collect_lines:
+            collect_entry = LogEntry(
+                entry_type="collect",
+                note=f"Auto from stock update: {payload.note or ''}".strip(": "),
+                entry_date=entry_date,
+            )
+            db.add(collect_entry)
+            await db.flush()
+            for mat_id, diff in collect_lines:
+                db.add(LogLine(entry_id=collect_entry.id, mat_id=mat_id, quantity=diff))
+
+        # Auto-log an adjust entry for materials that decreased
+        if adjust_lines:
+            adjust_entry = LogEntry(
+                entry_type="adjust",
+                note=f"Auto from stock update (decrease): {payload.note or ''}".strip(": "),
+                entry_date=entry_date,
+            )
+            db.add(adjust_entry)
+            await db.flush()
+            for mat_id, diff in adjust_lines:
+                db.add(LogLine(entry_id=adjust_entry.id, mat_id=mat_id, quantity=diff))
+
+    else:
+        # ── NORMAL ADD/SUBTRACT MODE ──────────────────────────────────────────
+        entry = LogEntry(
+            entry_type=payload.entry_type,
+            recipe=payload.recipe,
+            runs=payload.runs,
+            note=payload.note,
+            entry_date=entry_date,
+        )
+        db.add(entry)
+        await db.flush()
+
+        for line in payload.lines:
+            db.add(LogLine(entry_id=entry.id, mat_id=line.mat_id, quantity=line.quantity))
+            result = await db.execute(select(Stock).where(Stock.mat_id == line.mat_id))
+            stock_row = result.scalar_one_or_none()
             if stock_row:
                 stock_row.quantity = stock_row.quantity + line.quantity
             else:
