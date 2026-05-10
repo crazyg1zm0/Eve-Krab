@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "./api/client";
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, CartesianGrid,
+  AreaChart, Area, LineChart, Line, BarChart, Bar,
+  XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
 
 // ─── COMPLETE PI MATERIAL LIST P1-P4 ─────────────────────────────────────────
@@ -911,13 +911,29 @@ function LogPage({log}) {
   );
 }
 
+// ─── MATERIAL LINE COLOURS ────────────────────────────────────────────────────
+const LINE_COLOURS = [
+  "#00b4ff","#00e676","#d4960a","#ff3344","#b44fff",
+  "#ff8c00","#00e5ff","#69ff47","#ff4081","#ffea00",
+];
+
 // ─── ANALYTICS PAGE ───────────────────────────────────────────────────────────
 function AnalyticsPage({log, stock, prices}) {
   const [days,      setDays]      = useState(14);
   const [chartData, setChartData] = useState([]);
+  const [chartMats, setChartMats] = useState([]);
 
   useEffect(() => {
-    api.getDaily(days).then(setChartData).catch(()=>setChartData([]));
+    api.getDaily(days)
+      .then(res => {
+        if (res && res.data) {
+          setChartData(res.data);
+          setChartMats(res.materials || []);
+        } else {
+          setChartData([]); setChartMats([]);
+        }
+      })
+      .catch(()=>{ setChartData([]); setChartMats([]); });
   }, [days]);
 
   const stocked = ALL_MATERIALS.filter(m => (stock[m.id]||0) > 0);
@@ -935,26 +951,36 @@ function AnalyticsPage({log, stock, prices}) {
     return {name:m.name.split(" ").slice(-1)[0], value:p?Math.round(p.adj*(stock[m.id]||0)):0};
   }).filter(m=>m.value>0).sort((a,b)=>b.value-a.value);
 
-  // Smart domain for chart Y axis
-  const maxUnits = chartData.length ? Math.max(...chartData.map(d=>d.units)) : 0;
-  const yDomain  = [0, Math.ceil(maxUnits * 1.15 / 1000) * 1000 || 10000];
+  // Smart Y axis domain based on max value across all materials
+  const maxVal = chartData.length
+    ? Math.max(...chartData.flatMap(d => chartMats.map(m => d[m]||0)))
+    : 0;
+  const yDomain = [0, Math.ceil(maxVal * 1.15 / 1000) * 1000 || 10000];
 
   const ChartTip = ({active,payload,label}) => {
     if (!active||!payload?.length) return null;
+    const sorted = [...payload].sort((a,b)=>(b.value||0)-(a.value||0));
     return (
       <div style={{background:"var(--panel)",border:"1px solid var(--b2)",borderRadius:3,
-        padding:"8px 12px",fontSize:12}}>
-        <HUD style={{fontSize:9,color:"var(--acc)",display:"block",marginBottom:4}}>{label}</HUD>
-        {payload.map(p=>(
-          <div key={p.name} style={{fontFamily:"var(--mono)",color:p.color||"var(--tp)"}}>
-            {p.name}: {fmtQty(p.value)}
-          </div>
-        ))}
+        padding:"8px 12px",fontSize:12,maxHeight:300,overflowY:"auto"}}>
+        <HUD style={{fontSize:9,color:"var(--acc)",display:"block",marginBottom:6}}>{label}</HUD>
+        {sorted.filter(p=>p.value>0).map(p => {
+          const mat = matById(p.dataKey);
+          return (
+            <div key={p.dataKey} style={{fontFamily:"var(--mono)",color:p.color,marginBottom:2}}>
+              {mat?.name||p.dataKey}: {fmtQty(p.value)}
+            </div>
+          );
+        })}
+        <div style={{borderTop:"1px solid var(--b1)",marginTop:6,paddingTop:6,
+          fontFamily:"var(--mono)",color:"var(--tp)",fontWeight:"bold"}}>
+          Total: {fmtQty(sorted.reduce((s,p)=>s+(p.value||0),0))}
+        </div>
       </div>
     );
   };
 
-  const Empty = ({h=210}) => (
+  const Empty = ({h=240}) => (
     <div style={{height:h,display:"flex",alignItems:"center",justifyContent:"center",
       color:"var(--tm)",fontFamily:"var(--mono)",fontSize:12}}>
       No data yet — log your first collection run
@@ -966,30 +992,45 @@ function AnalyticsPage({log, stock, prices}) {
       <Card>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",
           marginBottom:14,paddingBottom:10,borderBottom:"1px solid var(--b1)"}}>
-          <HUD style={{fontSize:10,color:"var(--acc)"}}>Daily Collection Volume</HUD>
+          <HUD style={{fontSize:10,color:"var(--acc)"}}>Daily Collection — Units per Material</HUD>
           <div style={{display:"flex",gap:6}}>
-            {[7,14].map(d=>(
+            {[7,14,30].map(d=>(
               <Btn key={d} sm variant={days===d?"primary":"ghost"} onClick={()=>setDays(d)}>{d}D</Btn>
             ))}
           </div>
         </div>
         {chartData.length===0 ? <Empty/> : (
-          <ResponsiveContainer width="100%" height={210}>
-            <AreaChart data={chartData} margin={{top:4,right:8,left:-10,bottom:0}}>
-              <defs>
-                <linearGradient id="ag" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#0070cc" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#0070cc" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--b1)"/>
-              <XAxis dataKey="day" tick={{fill:"var(--tm)",fontSize:10}}/>
-              <YAxis domain={yDomain} tick={{fill:"var(--tm)",fontSize:10}} tickFormatter={fmtAxis}/>
-              <Tooltip content={<ChartTip/>}/>
-              <Area type="monotone" dataKey="units" name="units" stroke="var(--acc)"
-                strokeWidth={2} fill="url(#ag)" dot={{fill:"var(--acc)",r:3}} activeDot={{r:5}}/>
-            </AreaChart>
-          </ResponsiveContainer>
+          <>
+            <ResponsiveContainer width="100%" height={260}>
+              <LineChart data={chartData} margin={{top:4,right:16,left:-10,bottom:0}}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--b1)"/>
+                <XAxis dataKey="day" tick={{fill:"var(--tm)",fontSize:10}}/>
+                <YAxis domain={yDomain} tick={{fill:"var(--tm)",fontSize:10}} tickFormatter={fmtAxis}/>
+                <Tooltip content={<ChartTip/>}/>
+                {chartMats.map((matId,i) => (
+                  <Line key={matId} type="monotone" dataKey={matId}
+                    stroke={LINE_COLOURS[i % LINE_COLOURS.length]}
+                    strokeWidth={2} dot={{r:4}} activeDot={{r:6}}
+                    connectNulls={false}
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+            {/* Legend */}
+            <div style={{display:"flex",flexWrap:"wrap",gap:"6px 14px",marginTop:12,paddingTop:10,
+              borderTop:"1px solid var(--b1)"}}>
+              {chartMats.map((matId,i) => {
+                const mat = matById(matId);
+                const col = LINE_COLOURS[i % LINE_COLOURS.length];
+                return (
+                  <div key={matId} style={{display:"flex",alignItems:"center",gap:5,fontSize:11}}>
+                    <div style={{width:16,height:2,background:col,borderRadius:1,flexShrink:0}}/>
+                    <span style={{color:"var(--ts)"}}>{mat?.name||matId}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </Card>
 
